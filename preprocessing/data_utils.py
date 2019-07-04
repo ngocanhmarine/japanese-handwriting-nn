@@ -102,7 +102,7 @@ def get_ETL_data(dataset, categories, writers_per_char,
                 f.seek((id_category * 1411 + 1) * 2052)
 
             for i in range(writers_per_char):
-                # try:
+                try:
                     # skip records
                     if starting_writer:
                         for j in range(starting_writer):
@@ -141,8 +141,8 @@ def get_ETL_data(dataset, categories, writers_per_char,
                     elif database == 'ETL1C':
                         Y.append(r[3])
                         scriptTypes.append(1)
-                # except:
-                #     break
+                except:
+                    break
     output = []
     if img_format:
         output += [X]
