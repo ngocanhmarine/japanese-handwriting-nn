@@ -1,0 +1,362 @@
+<html>
+
+<head>
+    <title>MNIST</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.13.5"> </script>
+    <script type="text/javascript">
+        function dictionaryHiragana()
+        {
+            a={0:'あ',1:'い',2:'う',3:'え',4:'お',5:'か',6:'が',7:'き',8:'ぎ',9:'く',10:'ぐ',11:'け',12:'げ',13:'こ',14:'ご',15:'さ',16:'ざ',17:'し',18:'じ',19:'す',20:'ず',21:'せ',22:'ぜ',23:'そ',24:'ぞ',25:'た',26:'だ',27:'ち',28:'ぢ',29:'っ',30:'つ',31:'づ',32:'て',33:'で',34:'と',35:'ど',36:'な',37:'に',38:'め',39:'ね',40:'の',41:'は',42:'ば',43:'ぱ',44:'ひ',45:'び',46:'ぴ',47:'ふ',48:'ぶ',49:'ぷ',50:'へ',51:'べ',52:'ぺ',53:'ほ',54:'ぼ',55:'ぽ',56:'ま',57:'み',58:'む',59:'め',60:'も',61:'ゃ',62:'や',63:'ゅ',64:'ゆ',65:'ょ',66:'よ',67:'ら',68:'り',69:'る',70:'れ',71:'ろ',72:'わ',73:'を',74:'ん'}
+            return a;
+        }
+
+        function LookUp(num){
+            jDict=dictionaryHiragana();
+            return jDict[num];
+        }
+    </script>
+    <!-- <script src="https://unpkg.com/@tensorflow/tfjs@1.2.2/dist/tf.min.js"> </script> -->
+    <script type="text/javascript">
+        // Variables for referencing the canvas and 2dcanvas context
+        var canvas, ctx;
+        // Variables to keep track of the mouse position and left-button status 
+        var mouseX, mouseY, mouseDown = 0;
+        // Variables to keep track of the touch position
+        var touchX, touchY;
+        // Keep track of the old/last position when drawing a line
+        // We set it to -1 at the start to indicate that we don't have a good value for it yet
+        var lastX, lastY = -1;
+        // Draws a line between the specified position on the supplied canvas name
+        // Parameters are: A canvas context, the x position, the y position, the size of the dot
+        function drawLine(ctx, x, y, size) {
+            // If lastX is not set, set lastX and lastY to the current position 
+            if (lastX == -1) {
+                lastX = x;
+                lastY = y;
+            }
+            // Let's use black by setting RGB values to 0, and 255 alpha (completely opaque)
+            r = 255; g = 255; b = 255; a = 255;
+            // Select a fill style
+            ctx.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + (a / 255) + ")";
+            // Set the line "cap" style to round, so lines at different angles can join into each other
+            ctx.lineCap = "round";
+            //ctx.lineJoin = "round";
+            // Draw a filled line
+            ctx.beginPath();
+            // First, move to the old (previous) position
+            ctx.moveTo(lastX, lastY);
+            // Now draw a line to the current touch/pointer position
+            ctx.lineTo(x, y);
+            // Set the line thickness and draw the line
+            ctx.lineWidth = size;
+            ctx.stroke();
+            ctx.closePath();
+            // Update the last position to reference the current position
+            lastX = x;
+            lastY = y;
+        }
+        // Clear the canvas context using the canvas width and height
+        function clearCanvas(canvas, ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('rightside').innerHTML = '';
+        }
+        // Keep track of the mouse button being pressed and draw a dot at current location
+        function sketchpad_mouseDown() {
+            mouseDown = 1;
+            drawLine(ctx, mouseX, mouseY, 12);
+        }
+        // Keep track of the mouse button being released
+        function sketchpad_mouseUp() {
+            mouseDown = 0;
+            // Reset lastX and lastY to -1 to indicate that they are now invalid, since we have lifted the "pen"
+            lastX = -1;
+            lastY = -1;
+        }
+        // Keep track of the mouse position and draw a dot if mouse button is currently pressed
+        function sketchpad_mouseMove(e) {
+            // Update the mouse co-ordinates when moved
+            getMousePos(e);
+            // Draw a dot if the mouse button is currently being pressed
+            if (mouseDown == 1) {
+                drawLine(ctx, mouseX, mouseY, 12);
+            }
+        }
+        // Get the current mouse position relative to the top-left of the canvas
+        function getMousePos(e) {
+            if (!e)
+                var e = event;
+            if (e.offsetX) {
+                mouseX = e.offsetX;
+                mouseY = e.offsetY;
+            }
+            else if (e.layerX) {
+                mouseX = e.layerX;
+                mouseY = e.layerY;
+            }
+        }
+        // Draw something when a touch start is detected
+        function sketchpad_touchStart() {
+            // Update the touch co-ordinates
+            getTouchPos();
+            drawLine(ctx, touchX, touchY, 12);
+            // Prevents an additional mousedown event being triggered
+            event.preventDefault();
+        }
+        function sketchpad_touchEnd() {
+            // Reset lastX and lastY to -1 to indicate that they are now invalid, since we have lifted the "pen"
+            lastX = -1;
+            lastY = -1;
+        }
+        // Draw something and prevent the default scrolling when touch movement is detected
+        function sketchpad_touchMove(e) {
+            // Update the touch co-ordinates
+            getTouchPos(e);
+            // During a touchmove event, unlike a mousemove event, we don't need to check if the touch is engaged, since there will always be contact with the screen by definition.
+            drawLine(ctx, touchX, touchY, 12);
+            // Prevent a scrolling action as a result of this touchmove triggering.
+            event.preventDefault();
+        }
+        // Get the touch position relative to the top-left of the canvas
+        // When we get the raw values of pageX and pageY below, they take into account the scrolling on the page
+        // but not the position relative to our target div. We'll adjust them using "target.offsetLeft" and
+        // "target.offsetTop" to get the correct values in relation to the top left of the canvas.
+        function getTouchPos(e) {
+            if (!e)
+                var e = event;
+            if (e.touches) {
+                if (e.touches.length == 1) { // Only deal with one finger
+                    var touch = e.touches[0]; // Get the information for finger #1
+                    touchX = touch.pageX - touch.target.offsetLeft;
+                    touchY = touch.pageY - touch.target.offsetTop;
+                }
+            }
+        }
+        // Set-up the canvas and add our event handlers after the page has loaded
+        async function init() {
+            // Get the specific canvas element from the HTML document
+            canvas = document.getElementById('sketchpad');
+            // If the browser supports the canvas tag, get the 2d drawing context for this canvas
+            if (canvas.getContext)
+                ctx = canvas.getContext('2d');
+            // Check that we have a valid context to draw on/with before adding event handlers
+            if (ctx) {
+                // React to mouse events on the canvas, and mouseup on the entire document
+                canvas.addEventListener('mousedown', sketchpad_mouseDown, false);
+                canvas.addEventListener('mousemove', sketchpad_mouseMove, false);
+                window.addEventListener('mouseup', sketchpad_mouseUp, false);
+                // React to touch events on the canvas
+                canvas.addEventListener('touchstart', sketchpad_touchStart, false);
+                canvas.addEventListener('touchend', sketchpad_touchEnd, false);
+                canvas.addEventListener('touchmove', sketchpad_touchMove, false);
+            }
+            model = await tf.loadModel('http://192.168.0.189/hostmodel/models_M11_touch_count/model.json');
+            alert('Model loaded');
+        }
+        function checkDup(arr1,arr2){
+            arrPre=[...arr1];
+            arrCur=[...arr2];
+            count=0;
+            while (true)
+            {
+                bDup=false;
+                for (var i = 0; i < arrCur.length; i++) {
+                    if (arrPre.includes(arrCur[i])) {
+                        arrCur[i]=-2;
+                        bDup=true;
+                    }
+                    if (arrCur[i]!=-2 && arrPre.includes(arrCur[i]-1)) {
+                        arrPre.push(arrCur[i]);
+                        arrCur[i]=-2;
+                        bDup=true;
+                    }
+                    if (arrCur[i]!=-2 && arrPre.includes(arrCur[i]+1)) {
+                        arrPre.push(arrCur[i]);
+                        arrCur[i]=-2;
+                        bDup=true;
+                    }
+                }
+                if (bDup==false) break;
+            }
+            for (var i=0;i<arrCur.length;i++)
+            {
+                if (arrCur[i]!=-2 && ( ( i>0 && (arrCur[i-1]==-2 || Math.abs(arrCur[i-1]-arrCur[i])!=1)) || i==0 ) ) {
+                    count+=1;
+                }
+            }
+            return count;
+        }
+        function getAllIndexes(arr, val) {
+            var indexes = [], i = -1;
+            while ((i = arr.indexOf(val, i+1)) != -1){
+                indexes.push(i);
+            }
+            return indexes;
+        }
+        function TouchCount(item)
+        {
+            shape=Math.sqrt(item.length);
+            // Direction: left to right
+            countlr=0;
+            for (var i=0;i<shape;i++){
+                if (i==0) {
+                    arr1=[]
+                }
+                else {
+                    arr1=getAllIndexes([...Array(shape)].map((_,j)=>item[64*j+i-1]),0);
+                }
+                arr2=getAllIndexes([...Array(shape)].map((_,j)=>item[64*j+i]),0);
+                countlr+=checkDup(arr1,arr2);
+            }
+            // Direction: right to left
+            countrl=0;
+            for (var i=0;i<shape;i++){
+                if (i==0) {
+                    arr1=[]
+                }
+                else{
+                    arr1=getAllIndexes([...Array(shape)].map((_,j)=>item[64+64*j-i]),0);
+                }
+                arr2=getAllIndexes([...Array(shape)].map((_,j)=>item[64+64*j-i-1]),0);
+                countrl+=checkDup(arr1,arr2);
+            }
+            // Direction: top down
+            counttd=0;
+            for (var i=0;i<shape;i++){
+                if (i==0) {
+                    arr1=[]
+                }
+                else{
+                    arr1=getAllIndexes([...Array(shape)].map((_,j)=>item[64*(i-1)+j]),0);
+                }
+                arr2=getAllIndexes([...Array(shape)].map((_,j)=>item[64*i+j]),0);
+                counttd+=checkDup(arr1,arr2);
+            }
+            // Direction: bottom up
+            countbu=0;
+            for (var i=0;i<shape;i++) {
+                if (i==0) {
+                    arr1=[]
+                }
+                else{
+                    arr1=getAllIndexes([...Array(shape)].map((_,j)=>item[64*(64-i)+j]),0);
+                }
+                arr2=getAllIndexes([...Array(shape)].map((_,j)=>item[64*(64-i-1)+j]),0);
+                countbu+=checkDup(arr1,arr2);
+            }
+
+            return [countlr,countrl,counttd,countbu];
+        }
+        function predict() {
+            const imageData = ctx.getImageData(0, 0, 180, 180);
+            //convert to tensor
+            var tfImg = tf.fromPixels(imageData, 1);
+
+            var smalImg = tf.image.resizeBilinear(tfImg, [64, 64]);
+
+            smalImg = tf.cast(smalImg, 'float32');
+            var tensor = smalImg.expandDims(0);
+            tensor = tensor.div(tf.scalar(255));
+            tensor=tensor.reshape([1,1,64,64]);
+
+            // convert background to black
+            ts=tensor.dataSync();
+            for (i=0;i<ts.length;i++){ts[i]=1-ts[i];}
+            // Get touchCount
+            var touchCount=TouchCount(Array.prototype.slice.call(ts));
+            var touchCountTensor=[];
+            touchCountTensor.push(...[...[...Array(touchCount[0])].map((_,j)=>1),...[...Array(64-touchCount[0])].map((_,j)=>0)]);
+            touchCountTensor.push(...[...[...Array(touchCount[1])].map((_,j)=>1),...[...Array(64-touchCount[1])].map((_,j)=>0)]);
+            touchCountTensor.push(...[...[...Array(touchCount[2])].map((_,j)=>1),...[...Array(64-touchCount[2])].map((_,j)=>0)]);
+            touchCountTensor.push(...[...[...Array(touchCount[3])].map((_,j)=>1),...[...Array(64-touchCount[3])].map((_,j)=>0)]);
+            ts=new Float32Array([...ts,...touchCountTensor]);
+            // // print the tensor
+            // s='';for (i=0;i<64;i++){for (j=0;j<64;j++) {s+=ts[i*64+j]>0?ts[i*64+j].toFixed(2)+' ':'     ';} s+='\n';}
+            // console.log(s);
+            tensor=tf.tensor1d(ts).reshape([1,1,68,64]);
+
+            const prediction = model.predict(tensor);
+
+            const predictedValues = prediction.dataSync();
+            var isThereAnyPrediction = false;
+
+            for (index = 0; index < predictedValues.length; index++) {
+                if (predictedValues[index] > 0.5) {
+                    isThereAnyPrediction = true;
+                    document.getElementById('rightside').innerHTML = '<br/>Predicted Character: ' + LookUp(index);
+                }
+            }
+            if (!isThereAnyPrediction) {
+                document.getElementById('rightside').innerHTML = '<br>Unable to Predict';
+            }
+        }
+    </script>
+
+    <style>
+        /* Some CSS styling */
+        #mnistapp {
+            /* Prevent nearby text being highlighted when accidentally dragging mouse outside confines of the canvas */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        .rightside {
+            float: left;
+            width: 140px;
+            height: 165px;
+            background-color: #def;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .leftside {
+            float: left;
+            width: 190px;
+            height: 260px;
+            margin-left: 10px;
+        }
+        #sketchpad {
+            float: left;
+            height: 180;
+            width: 180;
+            border: 2px solid #888;
+            border-radius: 4px;
+            position: relative;
+            background-color: black;
+            /* Necessary for correct mouse co-ords in Firefox */
+        }
+        #clearbutton {
+            font-size: 15px;
+            padding: 10px;
+            -webkit-appearance: none;
+            background: #eee;
+            border: 1px solid #888;
+        }
+        #predictbutton {
+            font-size: 15px;
+            padding: 10px;
+            -webkit-appearance: none;
+            background: #eee;
+            border: 1px solid #888;
+        }
+
+    </style>
+</head>
+
+<body onload="init()">
+    <div id="mnistapp">
+        <h4 style="margin-left: 10px;">Draw a number in the left-hand box</h4>
+        <div class="leftside">
+            <canvas id="sketchpad" height="180" width="180"></canvas>
+            <input type="submit" value="Predict" id="predictbutton" onclick="predict();">
+            <input type="submit" value="Clear" id="clearbutton" onclick="clearCanvas(canvas,ctx);">
+        </div>
+        <div id="rightside" class="rightside">
+        </div>
+    </div>
+</body>
+
+</html>
